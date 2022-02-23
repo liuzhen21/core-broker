@@ -18,7 +18,10 @@ package types
 
 import (
 	"os"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	pb "github.com/tkeel-io/core-broker/api/topic/v1"
 )
@@ -35,6 +38,8 @@ func Interface2string(in interface{}) (out string) {
 	return
 }
 
+var entityMap sync.Map
+
 type WsRequest struct {
 	Type string `json:"type,omitempty"`
 	ID   string `json:"id,omitempty"`
@@ -46,9 +51,20 @@ const PubsubName = "core-broker-pubsub"
 var Topic, _ = os.Hostname()
 
 func GetSubscriptionID(entityID string) string {
-	return entityID + "_" + Topic
+	subID, ok := entityMap.Load(entityID)
+	if ok {
+		return subID.(string)
+	} else {
+		subID := entityID + "_" + strconv.FormatInt(int64(time.Now().Second()), 10)
+		entityMap.Store(entityID, subID)
+		return subID
+	}
 }
 
 func GetEntityID(subscriptionID string) string {
 	return strings.Split(subscriptionID, "_")[0]
+}
+
+func DelSubscriptionID(entityID string) {
+	entityMap.Delete(entityID)
 }
